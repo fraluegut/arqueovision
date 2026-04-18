@@ -1,0 +1,8 @@
+---
+- name: Desplegar ArqueoVision en producción
+  hosts: arqueovision
+  become: true
+
+  roles:
+    - docker
+    - arqueovision

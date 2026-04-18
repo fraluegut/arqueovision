@@ -1,0 +1,23 @@
+# ── Deployment target ─────────────────────────────────────────────────────────
+deploy_user: ubuntu           # usuario del servidor que ejecutará Docker
+deploy_dir: /opt/arqueovision # directorio de despliegue en el servidor
+
+# ── Repository ────────────────────────────────────────────────────────────────
+repo_url: https://github.com/fraluegut/arqueovision.git
+repo_branch: master
+
+# ── Ports ─────────────────────────────────────────────────────────────────────
+api_port: 8001
+frontend_port: 80
+db_port: 5432
+
+# ── Database ──────────────────────────────────────────────────────────────────
+# Para producción, usa ansible-vault para cifrar la contraseña:
+#   ansible-vault encrypt_string 'mi_contraseña_segura' --name 'db_password'
+db_name: arqueovision
+db_user: arqueovision
+db_password: "arqueovision"   # cambia esto o usa vault
+
+# ── Model weights ─────────────────────────────────────────────────────────────
+# Ruta LOCAL (en la máquina desde la que corres ansible) al fichero del modelo
+local_model_path: "{{ playbook_dir }}/../models/best_model.pth"

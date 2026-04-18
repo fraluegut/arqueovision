@@ -1,0 +1,114 @@
+---
+# ── Deploy ArqueoVision application ──────────────────────────────────────────
+
+- name: Crear directorio de despliegue
+  ansible.builtin.file:
+    path: "{{ deploy_dir }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0755"
+
+- name: Clonar o actualizar el repositorio
+  ansible.builtin.git:
+    repo: "{{ repo_url }}"
+    dest: "{{ deploy_dir }}"
+    version: "{{ repo_branch }}"
+    force: true
+  become_user: "{{ deploy_user }}"
+
+- name: Crear directorio models/ en el servidor
+  ansible.builtin.file:
+    path: "{{ deploy_dir }}/models"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0755"
+
+- name: Subir pesos del modelo (best_model.pth)
+  ansible.builtin.copy:
+    src: "{{ local_model_path }}"
+    dest: "{{ deploy_dir }}/models/best_model.pth"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0644"
+
+- name: Generar .env con las credenciales de BD
+  ansible.builtin.copy:
+    dest: "{{ deploy_dir }}/.env"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0600"
+    content: |
+      POSTGRES_DB={{ db_name }}
+      POSTGRES_USER={{ db_user }}
+      POSTGRES_PASSWORD={{ db_password }}
+      DATABASE_URL=postgresql://{{ db_user }}:{{ db_password }}@db:5432/{{ db_name }}
+
+- name: Ajustar owner del directorio completo
+  ansible.builtin.file:
+    path: "{{ deploy_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+
+# ── Construir imágenes y levantar stack ───────────────────────────────────────
+
+- name: Parar stack anterior (si existe)
+  ansible.builtin.command:
+    cmd: docker compose down --remove-orphans
+    chdir: "{{ deploy_dir }}"
+  become_user: "{{ deploy_user }}"
+  ignore_errors: true
+
+- name: Construir imágenes Docker
+  ansible.builtin.command:
+    cmd: docker compose build --pull
+    chdir: "{{ deploy_dir }}"
+  become_user: "{{ deploy_user }}"
+
+- name: Levantar stack completo
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ deploy_dir }}"
+  become_user: "{{ deploy_user }}"
+
+- name: Esperar a que la API esté healthy (máx 60 s)
+  ansible.builtin.command:
+    cmd: docker inspect --format="{{ '{{' }}.State.Health.Status{{ '}}' }}" arqueovision-api
+  register: api_health
+  until: api_health.stdout == "healthy"
+  retries: 12
+  delay: 5
+  become_user: "{{ deploy_user }}"
+
+# ── Systemd unit (arranque automático al reiniciar el servidor) ───────────────
+
+- name: Instalar unit systemd para el stack
+  ansible.builtin.template:
+    src: arqueovision.service.j2
+    dest: /etc/systemd/system/arqueovision.service
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Habilitar e iniciar servicio arqueovision
+  ansible.builtin.systemd:
+    name: arqueovision
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# ── Mostrar estado final ──────────────────────────────────────────────────────
+
+- name: Estado de los contenedores
+  ansible.builtin.command:
+    cmd: docker compose ps
+    chdir: "{{ deploy_dir }}"
+  become_user: "{{ deploy_user }}"
+  register: compose_status
+  changed_when: false
+
+- name: Imprimir estado
+  ansible.builtin.debug:
+    var: compose_status.stdout_lines
