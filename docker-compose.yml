@@ -1,0 +1,42 @@
+services:
+
+  # ── FastAPI inference API ──────────────────────────────────────────────────
+  api:
+    build: .
+    container_name: arqueovision-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the model weights without baking them into the image
+      - ./models:/app/models:ro
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    # ── GPU support (requires NVIDIA Container Toolkit on the host) ──────────
+    # Remove or comment out the block below for CPU-only execution.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # ── Nginx static frontend ─────────────────────────────────────────────────
+  frontend:
+    image: nginx:alpine
+    container_name: arqueovision-frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped

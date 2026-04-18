@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ArqueoVision</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0e0d0b;
+      --surface:   #161410;
+      --border:    #2a2620;
+      --accent:    #c9a96e;
+      --accent-dim:#7a5f35;
+      --text:      #e8e0d4;
+      --muted:     #6b6256;
+      --radius:    12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: clamp(2.4rem, 5vw, 3.6rem);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    header p {
+      margin-top: 10px;
+      font-size: 0.82rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Main card ── */
+    .card {
+      width: 100%;
+      max-width: 680px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    /* ── Drop zone ── */
+    #drop-zone {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 56px 32px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #drop-zone:hover,
+    #drop-zone.drag-over {
+      background: #1c1a16;
+    }
+    #drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    #drop-zone svg {
+      opacity: 0.35;
+      transition: opacity 0.2s;
+    }
+    #drop-zone:hover svg { opacity: 0.6; }
+
+    .drop-label {
+      font-size: 0.8rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .drop-hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
+    /* ── Preview ── */
+    #preview-wrap {
+      display: none;
+      position: relative;
+      border-bottom: 1px solid var(--border);
+    }
+    #preview-wrap img {
+      display: block;
+      width: 100%;
+      max-height: 340px;
+      object-fit: cover;
+    }
+    #preview-wrap .overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(14,13,11,0.7) 0%, transparent 50%);
+    }
+    #preview-wrap .change-btn {
+      position: absolute;
+      bottom: 14px;
+      right: 16px;
+      background: rgba(14,13,11,0.75);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    #preview-wrap .change-btn:hover {
+      color: var(--text);
+      border-color: var(--accent-dim);
+    }
+
+    /* ── Analyze button ── */
+    .actions {
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border);
+      display: none;
+    }
+    #analyze-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #0e0d0b;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    #analyze-btn:hover  { background: #d9b87e; }
+    #analyze-btn:active { transform: scale(0.99); }
+    #analyze-btn:disabled {
+      background: var(--accent-dim);
+      cursor: not-allowed;
+    }
+
+    /* ── Results ── */
+    #results {
+      display: none;
+      padding: 28px;
+    }
+    .results-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: 0.72rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 22px;
+    }
+
+    .prediction-item {
+      margin-bottom: 18px;
+    }
+    .prediction-item:last-child { margin-bottom: 0; }
+
+    .pred-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 7px;
+    }
+    .pred-label {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400;
+      font-size: 1.05rem;
+      letter-spacing: 0.06em;
+      color: var(--text);
+    }
+    .pred-label.top {
+      font-size: 1.25rem;
+      color: var(--accent);
+    }
+    .pred-score {
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .pred-score.top { color: var(--accent); }
+
+    .bar-track {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent-dim);
+      width: 0;
+      transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .bar-fill.top { background: var(--accent); }
+
+    /* ── Divider between top and rest ── */
+    .pred-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 20px 0;
+    }
+
+    /* ── Loader ── */
+    #loader {
+      display: none;
+      padding: 40px 28px;
+      text-align: center;
+    }
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text {
+      font-size: 0.72rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Error ── */
+    #error-msg {
+      display: none;
+      padding: 16px 28px;
+      font-size: 0.78rem;
+      color: #e07070;
+      border-top: 1px solid var(--border);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 40px;
+      font-size: 0.68rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      opacity: 0.45;
+    }
+
+    /* ── Log panel ── */
+    .log-panel {
+      width: 100%;
+      max-width: 680px;
+      margin-top: 24px;
+    }
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px 10px;
+    }
+    .log-title {
+      font-size: 0.68rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .log-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .log-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .log-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent-dim);
+    }
+    .log-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .log-table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .log-empty {
+      padding: 24px;
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.72rem;
+    }
+    .log-table thead tr {
+      border-bottom: 1px solid var(--border);
+    }
+    .log-table th {
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 400;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-size: 0.63rem;
+    }
+    .log-table td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      letter-spacing: 0.03em;
+    }
+    .log-table tbody tr:last-child td { border-bottom: none; }
+    .log-table tbody tr:hover td { background: #1c1a16; }
+    .log-status-ok   { color: var(--accent); }
+    .log-status-err  { color: #e07070; }
+    .log-ts { color: var(--muted); font-size: 0.65rem; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>ArqueoVision</h1>
+    <p>Clasificación de estilos arquitectónicos</p>
+  </header>
+
+  <div class="card">
+
+    <!-- Drop zone -->
+    <div id="drop-zone">
+      <input type="file" id="file-input" accept="image/*" />
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/>
+      </svg>
+      <span class="drop-label">Arrastra una imagen o haz clic</span>
+      <span class="drop-hint">JPG, PNG, WEBP</span>
+    </div>
+
+    <!-- Preview -->
+    <div id="preview-wrap">
+      <img id="preview-img" src="" alt="Preview" />
+      <div class="overlay"></div>
+      <button class="change-btn" id="change-btn">Cambiar</button>
+    </div>
+
+    <!-- Analyze button -->
+    <div class="actions" id="actions">
+      <button id="analyze-btn">Analizar imagen</button>
+    </div>
+
+    <!-- Loader -->
+    <div id="loader">
+      <div class="spinner"></div>
+      <p class="loader-text">Analizando</p>
+    </div>
+
+    <!-- Results -->
+    <div id="results"></div>
+
+    <!-- Error -->
+    <p id="error-msg"></p>
+
+  </div>
+
+  <!-- Log panel -->
+  <div class="log-panel" id="log-panel">
+    <div class="log-header">
+      <span class="log-title">Registro de análisis</span>
+      <div class="log-actions">
+        <button class="log-btn" id="export-btn" disabled>Exportar CSV</button>
+        <button class="log-btn" id="clear-btn" disabled>Limpiar</button>
+      </div>
+    </div>
+    <div class="log-table-wrap">
+      <p class="log-empty" id="log-empty">Sin registros todavía</p>
+      <table class="log-table" id="log-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Archivo</th>
+            <th>Predicción</th>
+            <th>Confianza</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>ArqueoVision &mdash; v0.1</footer>
+
+  <script>
+    const API_URL = 'http://localhost:8000/predict-image';
+    const LOG_KEY  = 'arqueovision_logs';
+
+    const dropZone   = document.getElementById('drop-zone');
+    const fileInput  = document.getElementById('file-input');
+    const previewWrap= document.getElementById('preview-wrap');
+    const previewImg = document.getElementById('preview-img');
+    const changeBtn  = document.getElementById('change-btn');
+    const actionsDiv = document.getElementById('actions');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const loader     = document.getElementById('loader');
+    const resultsDiv = document.getElementById('results');
+    const errorMsg   = document.getElementById('error-msg');
+    const exportBtn  = document.getElementById('export-btn');
+    const clearBtn   = document.getElementById('clear-btn');
+    const logTable   = document.getElementById('log-table');
+    const logTbody   = document.getElementById('log-tbody');
+    const logEmpty   = document.getElementById('log-empty');
+
+    let selectedFile = null;
+
+    // ── Log helpers ──
+    function loadLogs() {
+      try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); }
+      catch { return []; }
+    }
+
+    function saveLogs(logs) {
+      localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+    }
+
+    function appendLog(entry) {
+      const logs = loadLogs();
+      logs.unshift(entry); // newest first
+      saveLogs(logs);
+      renderLogs(logs);
+    }
+
+    function renderLogs(logs) {
+      if (!logs.length) {
+        logEmpty.style.display = 'block';
+        logTable.style.display = 'none';
+        exportBtn.disabled = true;
+        clearBtn.disabled  = true;
+        return;
+      }
+      logEmpty.style.display = 'none';
+      logTable.style.display = 'table';
+      exportBtn.disabled = false;
+      clearBtn.disabled  = false;
+
+      logTbody.innerHTML = logs.map(e => `
+        <tr>
+          <td class="log-ts">${e.ts}</td>
+          <td>${escHtml(e.filename)}</td>
+          <td>${e.status === 'ok' ? escHtml(e.prediction) : '—'}</td>
+          <td>${e.status === 'ok' ? e.confidence + '%' : '—'}</td>
+          <td class="log-status-${e.status}">${e.status === 'ok' ? 'OK' : escHtml(e.error)}</td>
+        </tr>`).join('');
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    exportBtn.addEventListener('click', () => {
+      const logs = loadLogs();
+      if (!logs.length) return;
+      const header = 'timestamp,filename,prediction,confidence_%,status,error';
+      const rows = logs.map(e => [
+        `"${e.ts}"`,
+        `"${(e.filename || '').replace(/"/g, '""')}"`,
+        `"${(e.prediction || '').replace(/"/g, '""')}"`,
+        e.confidence ?? '',
+        e.status,
+        `"${(e.error || '').replace(/"/g, '""')}"`
+      ].join(','));
+      const csv  = [header, ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `arqueovision_logs_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    clearBtn.addEventListener('click', () => {
+      localStorage.removeItem(LOG_KEY);
+      renderLogs([]);
+    });
+
+    // Init log table from storage
+    renderLogs(loadLogs());
+
+    // ── Drag & drop ──
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) loadFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) loadFile(fileInput.files[0]);
+    });
+
+    changeBtn.addEventListener('click', resetToUpload);
+
+    function loadFile(file) {
+      selectedFile = file;
+      const url = URL.createObjectURL(file);
+      previewImg.src = url;
+      dropZone.style.display = 'none';
+      previewWrap.style.display = 'block';
+      actionsDiv.style.display = 'block';
+      hideResults();
+    }
+
+    function resetToUpload() {
+      selectedFile = null;
+      fileInput.value = '';
+      previewImg.src = '';
+      previewWrap.style.display = 'none';
+      actionsDiv.style.display = 'none';
+      dropZone.style.display = 'flex';
+      hideResults();
+    }
+
+    function hideResults() {
+      resultsDiv.style.display = 'none';
+      resultsDiv.innerHTML = '';
+      errorMsg.style.display = 'none';
+      errorMsg.textContent = '';
+      loader.style.display = 'none';
+    }
+
+    // ── Analyze ──
+    analyzeBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      analyzeBtn.disabled = true;
+      actionsDiv.style.display = 'none';
+      loader.style.display = 'block';
+      hideResults();
+      loader.style.display = 'block'; // re-show after hideResults
+
+      const form = new FormData();
+      form.append('file', selectedFile);
+
+      const ts = new Date().toLocaleString('es-ES', { hour12: false });
+
+      try {
+        const res = await fetch(API_URL, { method: 'POST', body: form });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `Error ${res.status}`);
+        }
+        const data = await res.json();
+        renderResults(data);
+        appendLog({
+          ts,
+          filename:   selectedFile.name,
+          prediction: data.prediction,
+          confidence: (data.confidence * 100).toFixed(1),
+          status:     'ok',
+          error:      ''
+        });
+      } catch (e) {
+        const msg = e.message || 'Error al conectar con el servidor.';
+        errorMsg.textContent = msg;
+        errorMsg.style.display = 'block';
+        appendLog({
+          ts,
+          filename:   selectedFile ? selectedFile.name : '',
+          prediction: '',
+          confidence: null,
+          status:     'err',
+          error:      msg
+        });
+      } finally {
+        loader.style.display = 'none';
+        analyzeBtn.disabled = false;
+        actionsDiv.style.display = 'block';
+      }
+    });
+
+    function renderResults(data) {
+      const preds = data.top_predictions || [];
+      if (!preds.length) return;
+
+      let html = '<p class="results-title">Clasificación</p>';
+
+      preds.forEach((p, i) => {
+        const isTop = i === 0;
+        const pct = (p.score * 100).toFixed(1);
+        html += `
+          <div class="prediction-item">
+            ${i === 1 ? '<hr class="pred-divider">' : ''}
+            <div class="pred-header">
+              <span class="pred-label ${isTop ? 'top' : ''}">${p.label}</span>
+              <span class="pred-score ${isTop ? 'top' : ''}">${pct}%</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill ${isTop ? 'top' : ''}" data-width="${pct}"></div>
+            </div>
+          </div>`;
+      });
+
+      resultsDiv.innerHTML = html;
+      resultsDiv.style.display = 'block';
+
+      // Animate bars after paint
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.bar-fill').forEach(bar => {
+          bar.style.width = bar.dataset.width + '%';
+        });
+      });
+    }
+  </script>
+</body>
+</html>

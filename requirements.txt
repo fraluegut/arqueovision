@@ -1,0 +1,9 @@
+# API runtime dependencies
+fastapi==0.136.0
+uvicorn[standard]==0.44.0
+python-multipart==0.0.26
+pillow==12.2.0
+
+# ML
+torch==2.11.0
+torchvision==0.26.0

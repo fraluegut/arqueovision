@@ -1,0 +1,10 @@
+                 precision    recall  f1-score   support
+
+        Baroque       0.84      0.76      0.80        78
+         Gothic       0.72      0.75      0.73        55
+Hispanic-Muslim       0.87      0.80      0.83        50
+    Renaissance       0.57      0.69      0.62        48
+
+       accuracy                           0.75       231
+      macro avg       0.75      0.75      0.75       231
+   weighted avg       0.76      0.75      0.75       231
