@@ -28,6 +28,7 @@ models/*.pth
 models/*.pt
 models/*.ckpt
 models/*.bin
+!models/best_model.pth
 
 # ── Data ─────────────────────────────────────────────────────────────────────
 data/raw/
