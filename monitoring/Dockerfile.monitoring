@@ -1,0 +1,8 @@
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install --no-cache-dir \
+    evidently==0.7.21 \
+    sqlalchemy==2.0.49 \
+    psycopg2-binary==2.9.10 \
+    pandas==2.2.3
+COPY evidently_reporter.py .

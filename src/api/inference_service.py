@@ -14,6 +14,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class InferenceService:
     def __init__(self) -> None:
+        if not MODEL_PATH.exists():
+            self.model = None
+            self.class_names = []
+            self.image_size = 224
+            self.transform = None
+            return
+
         checkpoint = torch.load(MODEL_PATH, map_location=device)
 
         self.class_names = checkpoint["class_names"]
@@ -34,7 +41,13 @@ class InferenceService:
             ),
         ])
 
+    @property
+    def model_loaded(self) -> bool:
+        return self.model is not None
+
     def predict_pil(self, image: Image.Image, top_k: int = 3) -> list[dict]:
+        if self.model is None:
+            raise RuntimeError("Modelo no disponible: sube best_model.pth al servidor")
         image = image.convert("RGB")
         tensor = self.transform(image).unsqueeze(0).to(device)
 

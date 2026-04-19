@@ -5,6 +5,7 @@ from io import BytesIO
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, UnidentifiedImageError
+from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.orm import Session
 
 from src.api.database import Base, engine, get_db
@@ -28,6 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+Instrumentator().instrument(app).expose(app)
+
 service = InferenceService()
 MODEL_NAME = "resnet18"
 
@@ -36,7 +39,7 @@ MODEL_NAME = "resnet18"
 def health() -> dict:
     return {
         "status": "ok",
-        "model_loaded": True,
+        "model_loaded": service.model_loaded,
         "classes": service.class_names,
     }
 

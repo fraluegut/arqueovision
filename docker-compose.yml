@@ -24,7 +24,7 @@ services:
     build: .
     container_name: arqueovision-api
     ports:
-      - "8001:8000"
+      - "4000:8000"
     volumes:
       # Mount the model weights without baking them into the image
       - ./models:/app/models:ro
@@ -41,22 +41,108 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-    # ── GPU support (requires NVIDIA Container Toolkit on the host) ──────────
-    # Remove or comment out the block below for CPU-only execution.
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+  # ── Dozzle – Docker log viewer ────────────────────────────────────────────
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: arqueovision-dozzle
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "8888:8080"
+    restart: unless-stopped
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: arqueovision-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  # ── Loki – log aggregation ───────────────────────────────────────────────
+  loki:
+    image: grafana/loki:latest
+    container_name: arqueovision-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
+  # ── Promtail – log shipper ────────────────────────────────────────────────
+  promtail:
+    image: grafana/promtail:latest
+    container_name: arqueovision-promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./monitoring/promtail.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  # ── Evidently UI – ML monitoring dashboard ───────────────────────────────
+  evidently-ui:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.monitoring
+    container_name: arqueovision-evidently-ui
+    command: evidently ui --workspace /workspace --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    volumes:
+      - evidently_workspace:/workspace
+    restart: unless-stopped
+
+  # ── Evidently reporter – periodic snapshot generator ─────────────────────
+  evidently-reporter:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.monitoring
+    container_name: arqueovision-evidently-reporter
+    command: python /app/evidently_reporter.py
+    environment:
+      - DATABASE_URL=postgresql://arqueovision:arqueovision@db:5432/arqueovision
+      - EVIDENTLY_WORKSPACE=/workspace
+      - REPORT_INTERVAL=300
+      - LOOKBACK_HOURS=720
+    volumes:
+      - evidently_workspace:/workspace
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: arqueovision-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=arqueovision
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
 
   # ── Nginx static frontend ─────────────────────────────────────────────────
   frontend:
     image: nginx:alpine
     container_name: arqueovision-frontend
     ports:
-      - "80:80"
+      - "5173:80"
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
     depends_on:
@@ -66,3 +152,7 @@ services:
 
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  evidently_workspace:

@@ -1,5 +1,5 @@
 # ── Deployment target ─────────────────────────────────────────────────────────
-deploy_user: ubuntu           # usuario del servidor que ejecutará Docker
+deploy_user: root             # usuario del servidor que ejecutará Docker
 deploy_dir: /opt/arqueovision # directorio de despliegue en el servidor
 
 # ── Repository ────────────────────────────────────────────────────────────────
@@ -7,8 +7,8 @@ repo_url: https://github.com/fraluegut/arqueovision.git
 repo_branch: master
 
 # ── Ports ─────────────────────────────────────────────────────────────────────
-api_port: 8001
-frontend_port: 80
+api_port: 4000
+frontend_port: 5176
 db_port: 5432
 
 # ── Database ──────────────────────────────────────────────────────────────────
